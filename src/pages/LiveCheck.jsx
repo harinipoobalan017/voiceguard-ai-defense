@@ -257,6 +257,42 @@ export default function LiveCheck() {
       .catch(() => setBackendStatus('offline'));
   }, []);
 
+  // Helper: Convert decoded AudioBuffer into a pristine 16-bit PCM WAV Blob
+  const audioBufferToWav = (buffer) => {
+    const numChannels = 1;
+    const sampleRate = buffer.sampleRate;
+    const channelData = buffer.getChannelData(0);
+    const bytesPerSample = 2;
+    const dataSize = channelData.length * bytesPerSample;
+    const arrayBuffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(arrayBuffer);
+
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, 16, true); // 16-bit
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < channelData.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  };
+
   // ── Microphone ─────────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
@@ -269,13 +305,23 @@ export default function LiveCheck() {
       };
 
       mediaRecRef.current.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const rawBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setRecStatus('Processing audio through AASIST defense engine…');
+
+        let wavBlob = rawBlob;
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const buf = await rawBlob.arrayBuffer();
+          const decoded = await audioCtx.decodeAudioData(buf);
+          wavBlob = audioBufferToWav(decoded);
+        } catch (e) {
+          console.warn("WAV conversion skipped, sending raw blob:", e);
+        }
 
         // 1. Try Backend API
         try {
           const formData = new FormData();
-          formData.append('file', blob, 'mic_recording.webm');
+          formData.append('file', wavBlob, 'mic_recording.wav');
           const res = await fetch('http://127.0.0.1:5000/api/detect', {
             method: 'POST',
             body: formData,
@@ -283,7 +329,12 @@ export default function LiveCheck() {
           if (res.ok) {
             const data = await res.json();
             setBackendStatus('online');
-            commitMetrics(data.metrics, `"[Mic — AASIST Score: ${data.aasist_score} (${data.prediction} - ${data.status})]"`);
+            commitMetrics(
+              data.metrics,
+              `"[Mic — AASIST Score: ${data.aasist_score} (${data.prediction} - ${data.status})]"`,
+              data.decision,
+              data.status
+            );
             setRecStatus(`AASIST Verified — ${data.prediction} (${data.duration_seconds}s)`);
             return;
           }
@@ -294,10 +345,12 @@ export default function LiveCheck() {
         // 2. Client-side Fallback
         try {
           const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const buf      = await blob.arrayBuffer();
+          const buf      = await rawBlob.arrayBuffer();
           const decoded  = await audioCtx.decodeAudioData(buf);
           const features = extractAcousticFeatures(decoded);
-          commitMetrics(features, `"[Live mic — ${features.duration.toFixed(1)}s recorded]"`);
+          const forcedDec = features.syntheticRisk >= 0.50 ? 'BLOCK' : 'ALLOW';
+          const forcedDet = forcedDec === 'BLOCK' ? 'AI Voice Clone Intercepted by VoiceGuard Defense Engine' : 'Authentic human voice verified.';
+          commitMetrics(features, `"[Live mic — ${features.duration.toFixed(1)}s recorded]"`, forcedDec, forcedDet);
           setRecStatus(`Done — ${features.duration.toFixed(1)}s analysed.`);
         } catch {
           setRecStatus('Could not decode audio. Using estimation.');

@@ -2,6 +2,14 @@
 import numpy as np
 from scipy.signal import spectrogram, correlate
 
+try:
+    from .aasist_inference import BLOCK_THRESHOLD, FLAG_THRESHOLD
+except (ImportError, ValueError):
+    try:
+        from model.aasist_inference import BLOCK_THRESHOLD, FLAG_THRESHOLD
+    except (ImportError, ValueError):
+        from aasist_inference import BLOCK_THRESHOLD, FLAG_THRESHOLD
+
 class AASISTClassifier:
     """
     VoiceGuard AASIST (Audio Anti-Spoofing using Integrated Spectro-Temporal Graph Attention)
@@ -78,43 +86,43 @@ class AASISTClassifier:
         dyn_range = float(20 * np.log10((peak + 1e-6) / noise_floor))
 
         # 8. AASIST Integrated Spoof Score Calculation
-        # Neutral baseline: 0.50
-        spoof_score = 0.50
+        # Authentic voice baseline: 0.35
+        spoof_score = 0.35
 
-        # Indicator A: Periodic Vocoder Harmonics
-        if max_periodicity > 0.45:
-            spoof_score += 0.15
-        elif max_periodicity < 0.28:
-            spoof_score -= 0.15
+        # Indicator A: Periodic Vocoder Harmonics (AI vocoders have persistent rigidity without dynamic modulation)
+        if max_periodicity > 0.65 and rms_var < 0.004:
+            spoof_score += 0.25   # True synthetic vocoder flatline
+        elif max_periodicity < 0.35:
+            spoof_score -= 0.12   # Natural vocal fold jitter
 
-        # Indicator B: RMS Variance (flat synthetic volume vs natural dynamics)
-        if rms_var < 0.003:
-            spoof_score += 0.12
-        elif rms_var > 0.009:
-            spoof_score -= 0.12
+        # Indicator B: RMS Variance (flat synthetic volume vs natural speech dynamics)
+        if rms_var < 0.002:
+            spoof_score += 0.20   # Unnaturally flat volume
+        elif rms_var > 0.005:
+            spoof_score -= 0.15   # Natural expressive volume modulation
 
-        # Indicator C: Spectral Flatness
+        # Indicator C: Spectral Flatness (Vocoder frequency regularity)
         if spectral_flatness < 0.06:
-            spoof_score += 0.10
-        elif spectral_flatness > 0.15:
-            spoof_score -= 0.10
+            spoof_score += 0.15   # Synthetic vocoder phase
+        elif spectral_flatness > 0.12:
+            spoof_score -= 0.10   # Natural acoustic diversity
 
-        # Indicator D: Natural Speech Pauses
-        if pause_ratio < 0.04:
-            spoof_score += 0.08
-        elif pause_ratio > 0.18:
-            spoof_score -= 0.08
+        # Indicator D: Speech Pauses & Respiration (Humans pause to breathe)
+        if pause_ratio < 0.03:
+            spoof_score += 0.12   # Unbroken continuous generation
+        elif pause_ratio > 0.08:
+            spoof_score -= 0.12   # Natural conversational pauses
 
         # Clamp between 0.02 and 0.98
         spoof_score = float(np.clip(spoof_score, 0.02, 0.98))
         print(f"[VoiceGuard DEBUG] periodicity={max_periodicity:.3f} rms_var={rms_var:.5f} flatness={spectral_flatness:.3f} pause={pause_ratio:.3f} -> spoof_score={spoof_score:.3f}")
         bonafide_score = 1.0 - spoof_score
 
-        # Decision Thresholds
-        if spoof_score >= 0.55:
+        # Decision Thresholds using centralized constants
+        if spoof_score >= BLOCK_THRESHOLD:
             decision = "BLOCK"
             status = "AI Voice Clone Detected (High-Risk Impersonation Attack)"
-        elif spoof_score >= 0.35:
+        elif spoof_score >= FLAG_THRESHOLD:
             decision = "FLAGGED"
             status = "Ambiguous Signal — Step-Up Telephony OTP Challenge Dispatched"
         else:
@@ -126,7 +134,7 @@ class AASISTClassifier:
             "spoof_probability": round(spoof_score * 100, 1),
             "bonafide_probability": round(bonafide_score * 100, 1),
             "trust_score": round(bonafide_score * 100, 1),
-            "prediction": "SPOOF" if spoof_score >= 0.50 else "BONAFIDE",
+            "prediction": "SPOOF" if spoof_score >= FLAG_THRESHOLD else "BONAFIDE",
             "decision": decision,
             "status": status,
             "metrics": {
@@ -137,7 +145,7 @@ class AASISTClassifier:
                 "pauseRatio": pause_ratio,
                 "dynamicRangeDb": dyn_range,
                 "spectralFlatness": spectral_flatness,
-                "temporalRegularity": 0.04 if spoof_score >= 0.55 else 0.45,
+                "temporalRegularity": 0.04 if spoof_score >= BLOCK_THRESHOLD else 0.45,
                 "sampleRate": fs,
                 "unusualSampleRate": False,
                 "syntheticRisk": spoof_score,

@@ -15,7 +15,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["BubbledotICG-FinePos", "Geist Pixel Circle", "monospace"]
+        display: ["BubbledotICG-FinePos", "Silkscreen", "Geist Pixel Circle", "monospace"]
       }
     },
   },

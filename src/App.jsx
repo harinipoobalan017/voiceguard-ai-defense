@@ -8,7 +8,7 @@ import Dashboard from './pages/Dashboard';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import SignIn from './pages/SignIn';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Play, Shield } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -78,22 +78,41 @@ export default function App() {
         <Navbar activeTab={activeTab} setActiveTab={handleNavSelect} />
 
         {/* Single Viewport Hero Center */}
-        <main className="flex-1 flex flex-col items-center justify-center text-center max-w-[900px] w-full py-2">
-          <h1 className="headline anim text-white text-3xl md:text-7xl font-display mb-4">
-            <span className="block">Intelligence</span>
-            <span className="block">Designed To Evolve</span>
+        <main className="flex-1 flex flex-col items-center justify-center text-center max-w-[960px] w-full py-4 px-4 my-auto">
+          {/* Real-time Badge */}
+          <div className="anim inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18181b]/70 border border-white/20 backdrop-blur-md mb-6 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+            <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981] animate-pulse"></span>
+            <span className="text-[10px] sm:text-[11.5px] font-semibold tracking-wider text-zinc-200 uppercase font-sans">
+              REAL-TIME AI VOICE CLONE & FRAUD DEFENSE
+            </span>
+          </div>
+
+          {/* Headline in dot matrix / pixel display font */}
+          <h1 className="headline anim text-white text-2xl sm:text-4xl md:text-5xl lg:text-[58px] font-display font-bold tracking-tight mb-5 select-none leading-[1.18]" style={{ '--d': '0.08s' }}>
+            <span className="block drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">AI Voice Deepfake &</span>
+            <span className="block drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">Authentication Defense</span>
           </h1>
 
-          <p className="subhead anim text-zinc-300 text-sm md:text-base max-w-[500px] opacity-80 leading-relaxed mb-8" style={{ '--d': '0.18s' }}>
-            Build applications that reason, adapt and collaborate using a modular AI platform designed for production.
+          {/* Subtitle Description */}
+          <p className="subhead anim text-zinc-300 text-xs sm:text-sm md:text-[14.5px] max-w-[720px] font-normal leading-relaxed opacity-85 mb-8 px-2" style={{ '--d': '0.18s' }}>
+            VoiceGuard protects financial institutions, bank support desks, wire transfer approvals, and customer authentication calls from synthetic voice clones using client-side O(n) signal processing, dual-layer AI scoring, and out-of-band callback verification.
           </p>
 
-          <div className="cta-wrap anim" style={{ '--d': '0.3s' }}>
+          {/* Action Buttons */}
+          <div className="cta-wrap anim flex flex-wrap items-center justify-center gap-3 sm:gap-4" style={{ '--d': '0.28s' }}>
             <button
               onClick={() => handleNavSelect('live')}
-              className="bg-white text-black font-semibold text-xs md:text-sm px-6 py-3 rounded-full shadow-[0_0_22px_rgba(255,255,255,0.32)] hover:scale-105 hover:-translate-y-0.5 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2.5 bg-white text-black font-semibold text-xs sm:text-sm px-6 py-3 rounded-full shadow-[0_0_25px_rgba(255,255,255,0.35)] hover:scale-105 hover:-translate-y-0.5 transition-all cursor-pointer"
             >
-              Get Started
+              <Play size={13} className="fill-black text-black" />
+              <span>Test Live Detection</span>
+            </button>
+            <button
+              onClick={() => handleNavSelect('about')}
+              className="inline-flex items-center gap-2.5 bg-[#1f1f23]/80 hover:bg-[#2a2a30] text-[#e4e4e7] border border-white/15 font-medium text-xs sm:text-sm px-6 py-3 rounded-full backdrop-blur-md shadow-lg hover:scale-105 hover:-translate-y-0.5 transition-all cursor-pointer"
+            >
+              <Shield size={14} className="text-zinc-300" />
+              <span>How It Works</span>
             </button>
           </div>
         </main>

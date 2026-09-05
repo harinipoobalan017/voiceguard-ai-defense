@@ -2,6 +2,10 @@
 import os
 import numpy as np
 
+# Decision Thresholds for AI Voice Spoof Detection
+BLOCK_THRESHOLD = 0.55
+FLAG_THRESHOLD = 0.35
+
 class AASISTNeuralEngine:
     """
     Production AASIST Neural Inference Engine.
@@ -22,6 +26,12 @@ class AASISTNeuralEngine:
             self.F = F
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.model = AASIST()
+
+            if not os.path.exists(self.weights_path):
+                # Fallback to path relative to this file
+                fallback_path = os.path.join(os.path.dirname(__file__), "weights", "AASIST.pth")
+                if os.path.exists(fallback_path):
+                    self.weights_path = fallback_path
 
             if os.path.exists(self.weights_path):
                 state_dict = torch.load(self.weights_path, map_location=self.device)
@@ -71,11 +81,13 @@ class AASISTNeuralEngine:
             result["bonafide_probability"] = round((1.0 - blended_score) * 100, 1)
             result["trust_score"] = round((1.0 - blended_score) * 100, 1)
             result["engine"] = "AASIST PyTorch Deep GAT Neural Network"
+            result["metrics"]["syntheticRisk"] = round(blended_score, 4)
+            result["prediction"] = "SPOOF" if blended_score >= FLAG_THRESHOLD else "BONAFIDE"
             
-            if blended_score >= 0.55:
+            if blended_score >= BLOCK_THRESHOLD:
                 result["decision"] = "BLOCK"
                 result["status"] = "AI Voice Clone Intercepted by AASIST Neural Network"
-            elif blended_score >= 0.35:
+            elif blended_score >= FLAG_THRESHOLD:
                 result["decision"] = "FLAGGED"
                 result["status"] = "Ambiguous Signal — Secondary Telephony Challenge Triggered"
             else:
